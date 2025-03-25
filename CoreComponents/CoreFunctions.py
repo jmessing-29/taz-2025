@@ -242,7 +242,7 @@ class CoreFunctions:
         #     "stream").publish()
         # self.streamLimelightPub2.set(2)
         # self.ledLimelightPub2 = self.limelightTable2.getDoubleTopic("ledMode").publish()
-        # self.ledLimelightPub.set(1)  # Default LED. 1 is off. 3 is on.
+        # self.ledLimelightPub2.set(1)  # Default LED. 1 is off. 3 is on.
 
         self.coreTable = self.coreTableInstance.getTable("datatable")
 

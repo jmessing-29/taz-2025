@@ -51,7 +51,7 @@ class MyRobot(wpilib.TimedRobot):
         self.autonPosition3Switch = wpilib.DigitalInput(3)
         self.autonOption1Switch = wpilib.DigitalInput(4)
         self.autonOption3Switch = wpilib.DigitalInput(5)
-        self.coralIntakeIRSensor = wpilib.DigitalInput(7)
+        self.coralIntakeIRSensor = wpilib.DigitalInput(8) #was 7
         # self.elbowLimitSwitch = wpilib.DigitalInput(7)
 
         testbedPlug = wpilib.DigitalInput(9) # Shorting plug present in DIO 9 for Testbed mode.
@@ -77,7 +77,6 @@ class MyRobot(wpilib.TimedRobot):
         self.coralTroughDropTimer = NiftyTimer()
         self.coralEjectionTimer = NiftyTimer()
         self.delayTimer = NiftyTimer()
-
 
         # Declaring joystick controllers
         self.joystick0 = self.coreFunctionsInstance.joystick0  # First controller - Driver
@@ -132,7 +131,7 @@ class MyRobot(wpilib.TimedRobot):
         self.coralTilt_config = SparkMaxConfig()
         self.coralTilt_config.inverted(True)
         self.coralTilt_config.closedLoop.pid(0.1, 0.0, 0.0)
-        self.coralTilt_config.closedLoop.outputRange(-0.25, 0.1) #min was 0.15, max was 0.15
+        self.coralTilt_config.closedLoop.outputRange(-0.25, 0.1) #min was -0.15, max was 0.15
 
         self.coralTilt.configure(self.coralTilt_config, SparkBase.ResetMode.kResetSafeParameters,
                                    SparkBase.PersistMode.kPersistParameters)
@@ -147,7 +146,7 @@ class MyRobot(wpilib.TimedRobot):
         self.cascadeR_config = SparkFlexConfig()
         self.cascadeR_config.inverted(False)
         self.cascadeR_config.closedLoop.pid(0.1, 0.0, 0.0)
-        self.cascadeR_config.closedLoop.outputRange(-0.18, self.cascadeOutputCoralMax) # Min was -0.15
+        self.cascadeR_config.closedLoop.outputRange(-0.18, self.cascadeOutputCoralMax) # Min was -0.18
 
         self.cascadeR.configure(self.cascadeR_config, SparkBase.ResetMode.kResetSafeParameters,
                                 SparkBase.PersistMode.kPersistParameters)
@@ -159,7 +158,7 @@ class MyRobot(wpilib.TimedRobot):
         self.cascadeL_config = SparkFlexConfig()
         self.cascadeL_config.inverted(True)
         self.cascadeL_config.closedLoop.pid(0.1, 0.0, 0.0)
-        self.cascadeL_config.closedLoop.outputRange(-0.18, self.cascadeOutputCoralMax)  # Min was -0.15
+        self.cascadeL_config.closedLoop.outputRange(-0.18, self.cascadeOutputCoralMax)  # Min was -0.18
 
         self.cascadeL.configure(self.cascadeL_config, SparkBase.ResetMode.kResetSafeParameters,
                                 SparkBase.PersistMode.kPersistParameters)
@@ -216,17 +215,19 @@ class MyRobot(wpilib.TimedRobot):
 
         # self.climb_Enc.setPosition(0) # May need to re-activate if not zeroing with robot power cycle.
 
-        self.cageHerder = SparkMax(20, SparkLowLevel.MotorType.kBrushless)
-        self.cageHerder_Enc = self.cageHerder.getEncoder()
-        self.cageHerder_PID = self.cageHerder.getClosedLoopController()
+        self.mouseTrap = SparkMax(20, SparkLowLevel.MotorType.kBrushless)
+        self.mouseTrap_Enc = self.mouseTrap.getEncoder()
+        self.mouseTrap_PID = self.mouseTrap.getClosedLoopController()
 
-        self.cageHerder_config = SparkMaxConfig()
-        self.cageHerder_config.inverted(False)
-        self.cageHerder_config.closedLoop.pid(0.1, 0.0, 0.0)
-        self.cageHerder_config.closedLoop.outputRange(-0.6, 0.6)
+        self.mouseTrap_config = SparkMaxConfig()
+        self.mouseTrap_config.inverted(False)
+        self.mouseTrap_config.closedLoop.pid(0.1, 0.0, 0.0)
+        self.mouseTrap_config.closedLoop.outputRange(-0.3, 0.3)
 
-        self.cageHerder.configure(self.cageHerder_config, SparkBase.ResetMode.kResetSafeParameters,
+        self.mouseTrap.configure(self.mouseTrap_config, SparkBase.ResetMode.kResetSafeParameters,
                                  SparkBase.PersistMode.kPersistParameters)
+
+        self.mouseTrap_Enc.setPosition(0)
 
 
         #  Essential constants modified downstream / Primers
@@ -241,7 +242,7 @@ class MyRobot(wpilib.TimedRobot):
         self.DIO_Pub()
         self.joystickPub()
 
-    def autonomousInit(self):   # auton
+    def autonomousInit(self):   # autonCode
         """This function is run once each time the robot enters autonomous mode."""
         # Essential defaults
         self.autonomous = True
@@ -265,11 +266,22 @@ class MyRobot(wpilib.TimedRobot):
         self.readingAutonSwitches()
 
         if self.autonPosition == 1:
-            self.gyroCompensation = 90
+            # self.gyroCompensation = 90
+            self.gyroCompensation = 0
         elif self.autonPosition == 2:
             self.gyroCompensation = 180
         elif self.autonPosition == 3:
-            self.gyroCompensation = -90
+            # self.gyroCompensation = -90
+            self.gyroCompensation = 0
+
+        # if self.autonPosition == 1:
+        #     # self.gyroCompensation = 90
+        #     self.gyroCompensation = 180
+        # elif self.autonPosition == 2:
+        #     self.gyroCompensation = 180
+        # elif self.autonPosition == 3:
+        #     # self.gyroCompensation = -90
+        #     self.gyroCompensation = 180
 
         self.autoFaceAngle = self.gyroCompensation  # Default face angle at start
 
@@ -288,30 +300,37 @@ class MyRobot(wpilib.TimedRobot):
 
         """Start autonSteps below"""
 
+        # In auton, if maxAutoDriveNStopSpeed modified in steps, need reset criteria for entrance e.g right coatRack by = False
+        # in order to set speedMultiplier back to OG.
+
         if self.autonStep == 1:
             if self.autonPosition == 1:
-                self.autonStep = 100
+                self.autonStep = 400
             if self.autonPosition == 2:
-                self.autonStep = 200
+                self.autonStep = 210
             if self.autonPosition == 3:
-                self.autonStep = 300
+                self.autonStep = 400
 
         # Position 1
-        if self.autonStep == 100: # the power is a % of speedLimitMultiplier. Can increase self.speedLimitMultiplier to speed up.
+        if self.autonStep == 115: # the power is a % of speedLimitMultiplier. Can increase self.speedLimitMultiplier to speed up.
             angle = 180
             power = 0.8 # Was 1
-            distance = 80 #was 66
+            distance = 70 #was 80
             self.autoFaceAngle = 120
             distanceLeft, gotoNextAutonStep = self.coreFunctionsInstance.autoDrive(angle, power, distance) # failoutTime is optional
-            if self.thresholdDistanceAutoDrive_Coral1 > distanceLeft > 0: # Lift cascade once close enough
-                if self.newAutonCascade:
-                    self.autonCoral4DropOff = True
-                    self.newAutonCascade = False    # Restricting self.autonCoral4DropOff to 1 cycle so reverse ejection during lift not repeated
             if gotoNextAutonStep:
-                self.newAutonCascade = True # Resetting
+                self.autonCoral4DropOff = True
                 self.autonStep += 1
 
-        if self.autonStep == 101:    # Autoseek activated for coral #1 dropoff / right coat rack
+            # if self.thresholdDistanceAutoDrive_Coral1 > distanceLeft > 0: # Lift cascade once close enough
+            #     if self.newAutonCascade:
+            #         self.autonCoral4DropOff = True
+            #         self.newAutonCascade = False    # Restricting self.autonCoral4DropOff to 1 cycle so reverse ejection during lift not repeated
+            # if gotoNextAutonStep:
+            #     self.newAutonCascade = True # Resetting
+            #     self.autonStep += 1
+
+        if self.autonStep == 116:    # Autoseek activated for coral #1 dropoff / right coat rack
             if self.teamBlue:
                 self.limelight2Pipeline = self.coral1R_Pos1_Blue
             else:
@@ -324,19 +343,19 @@ class MyRobot(wpilib.TimedRobot):
             #     self.autonCoral4DropOff = True
             #     self.autonStep += 1
 
-        if self.autonStep == 102:   # Eject coral once basket in position.
+        if self.autonStep == 117:   # Eject coral once basket in position.
             if self.coralTilt_Enc.getPosition() > self.coralTilt4 - self.setpointTriggerZoneFine:
                 self.autonCoralEjection = True  # Self resetting
                 self.autonStep += 1
 
-        if self.autonStep == 103:   # Allow enough time for ejection before moving on to next step.
+        if self.autonStep == 118:   # Allow enough time for ejection before moving on to next step.
             timesUp = self.coralEjectionTimer.autoTimer(0.5)
             if timesUp:
                 self.coreFunctionsInstance.autoDriveReset()
                 self.autonRightCoatRackSeek = False  # Turning off autoseek so variable can be reset.
-                self.autonStep += 1
+                self.autonStep = 120
 
-        if self.autonStep == 104:   # cascade back to base and robot moving on to next target.
+        if self.autonStep == 120:   # cascade back to base and robot moving on to next target.
             self.autonCascadeDownNReset()   # OOPS
             # Venturing to station. Clear coat rack first.
             angle = 217 # Was 215
@@ -348,7 +367,7 @@ class MyRobot(wpilib.TimedRobot):
             if gotoNextAutonStep:
                 self.autonStep += 1
 
-        if self.autonStep == 105:   # cascade back to base and robot venturing to front of station
+        if self.autonStep == 121:   # cascade back to base and robot venturing to front of station
             self.autonCoralSpoonFed = True  # Get intake into station feed position
             angle = 200 # Was 215
             power = 0.85 #was 0.8
@@ -359,35 +378,43 @@ class MyRobot(wpilib.TimedRobot):
             if gotoNextAutonStep:
                 self.autonStep += 1
 
-        if self.autonStep == 106:  # Autoseek to station for feeding for coral #2
+        if self.autonStep == 122:  # Autoseek to station for feeding for coral #2
             self.autonCoralSpoonFedSeek = True
             if self.coralIntakeFull:    # Fail out when IR sensor tripped from presence of coral in mouth.
                 self.coreFunctionsInstance.autoDriveReset()
                 self.autonCoralSpoonFedSeek = False     # Turn off autoseek
-                if self.autonOption == 3:   # 3 piece.
-                    self.autonStep += 1
-                elif self.autonOption == 2: # same 3 piece for now.
-                    self.autonStep += 1
-                else:   # same 3 piece for now.
-                    self.autonStep += 1
+                self.autonStep = 125
 
-        if self.autonStep == 107:
+                # if self.autonOption == 3:   # 3 piece.
+                #     self.autonStep = 125
+                # elif self.autonOption == 2: # same 3 piece for now.
+                #     self.autonStep = 125
+                # else:   # same 3 piece for now.
+                #     self.autonStep = 125
+
+
+        if self.autonStep == 125:
             angle = 20  # was 25
             power = 0.9  # Was 0.8
             distance = 103  # was 115
             self.autoFaceAngle = 60
             distanceLeft, gotoNextAutonStep = self.coreFunctionsInstance.autoDrive(angle, power,
                                                                                    distance)  # failoutTime is optional
-            if self.thresholdDistanceAutoDrive_Coral2 > distanceLeft > 0: # Lift cascade once close enough
-                if self.newAutonCascade:
-                    self.autonCoralSpoonFed = False
-                    self.autonCoral4DropOff = True
-                    self.newAutonCascade = False  # Restricting self.autonCoral4DropOff to 1 cycle so reverse ejection during lift not repeated
             if gotoNextAutonStep:
-                self.newAutonCascade = True  # Resetting
+                self.autonCoralSpoonFed = False
+                self.autonCoral4DropOff = True  # Self resetting in a one off
                 self.autonStep += 1
 
-        if self.autonStep == 108:    # Autoseek activated for coral #2 dropoff
+            # if self.thresholdDistanceAutoDrive_Coral2 > distanceLeft > 0: # Lift cascade once close enough
+            #     if self.newAutonCascade:
+            #         self.autonCoralSpoonFed = False
+            #         self.autonCoral4DropOff = True
+            #         self.newAutonCascade = False  # Restricting self.autonCoral4DropOff to 1 cycle so reverse ejection during lift not repeated
+            # if gotoNextAutonStep:
+            #     self.newAutonCascade = True  # Resetting
+            #     self.autonStep += 1
+
+        if self.autonStep == 126:    # Autoseek activated for coral #2 dropoff
             if self.teamBlue:
                 self.limelight2Pipeline = self.coral2R_Pos1_Blue
             else:
@@ -400,19 +427,19 @@ class MyRobot(wpilib.TimedRobot):
 
             self.autonStep += 1
 
-        if self.autonStep == 109:   # Eject coral once basket in position.
+        if self.autonStep == 127:   # Eject coral once basket in position.
             if self.coralTilt_Enc.getPosition() > self.coralTilt4 - self.setpointTriggerZoneFine:
                 self.autonCoralEjection = True  # Self resetting
                 self.autonStep += 1
 
-        if self.autonStep == 110:   # Allow enough time for ejection before moving on to next step.
+        if self.autonStep == 128:   # Allow enough time for ejection before moving on to next step.
             timesUp = self.coralEjectionTimer.autoTimer(0.5)
             if timesUp:
                 self.coreFunctionsInstance.autoDriveReset()
                 self.autonRightCoatRackSeek = False  # Turning off autoseek so variable can be reset.
-                self.autonStep += 1
+                self.autonStep = 130
 
-        if self.autonStep == 111:   # cascade back to base and robot moving on to next target.
+        if self.autonStep == 130:   # cascade back to base and robot moving on to next target.
             self.autonCascadeDownNReset()   # Returning cascade to base.
             self.autonCoralSpoonFed = True
             # Venturing to station.
@@ -425,30 +452,35 @@ class MyRobot(wpilib.TimedRobot):
             if gotoNextAutonStep:
                 self.autonStep += 1
 
-        if self.autonStep == 112:  # Autoseek to station for feeding for coral #3
+        if self.autonStep == 131:  # Autoseek to station for feeding for coral #3
             self.autonCoralSpoonFedSeek = True
             if self.coralIntakeFull:  # Fail out when IR sensor tripped from presence of coral in mouth.
                 self.coreFunctionsInstance.autoDriveReset()
                 self.autonCoralSpoonFedSeek = False  # Turn off autoseek
-                self.autonStep += 1
+                self.autonStep = 135
 
-        if self.autonStep == 113:   # Start of autodrive to coral 3 drop off
+        if self.autonStep == 135:   # Start of autodrive to coral 3 drop off
             angle = 20
             power = 0.9  # Was 0.8
             distance = 103
             self.autoFaceAngle = 60
             distanceLeft, gotoNextAutonStep = self.coreFunctionsInstance.autoDrive(angle, power,
                                                                                    distance)  # failoutTime is optional
-            if self.thresholdDistanceAutoDrive_Coral3 > distanceLeft > 0: # Lift cascade once close enough
-                if self.newAutonCascade:
-                    self.autonCoralSpoonFed = False
-                    self.autonCoral4DropOff = True
-                    self.newAutonCascade = False  # Restricting self.autonCoral4DropOff to 1 cycle so reverse ejection during lift not repeated
             if gotoNextAutonStep:
-                self.newAutonCascade = True  # Resetting
+                self.autonCoralSpoonFed = False
+                self.autonCoral4DropOff = True  # Self resetting in a one off
                 self.autonStep += 1
 
-        if self.autonStep == 114:  # Autoseek activated for coral #3 dropoff
+            # if self.thresholdDistanceAutoDrive_Coral3 > distanceLeft > 0: # Lift cascade once close enough
+            #     if self.newAutonCascade:
+            #         self.autonCoralSpoonFed = False
+            #         self.autonCoral4DropOff = True
+            #         self.newAutonCascade = False  # Restricting self.autonCoral4DropOff to 1 cycle so reverse ejection during lift not repeated
+            # if gotoNextAutonStep:
+            #     self.newAutonCascade = True  # Resetting
+            #     self.autonStep += 1
+
+        if self.autonStep == 136:  # Autoseek activated for coral #3 dropoff
             if self.teamBlue:
                 self.limelight2Pipeline = self.coral3L_Pos1_Blue
             else:
@@ -461,20 +493,20 @@ class MyRobot(wpilib.TimedRobot):
 
             self.autonStep += 1
 
-        if self.autonStep == 115:   # Eject coral once basket in position.
+        if self.autonStep == 137:   # Eject coral once basket in position.
             if self.coralTilt_Enc.getPosition() > self.coralTilt4 - self.setpointTriggerZoneFine:
                 self.autonCoralEjection = True  # Self resetting
                 self.autonStep += 1
 
-        if self.autonStep == 116:   # Allow enough time for ejection before moving on to next step.
+        if self.autonStep == 138:   # Allow enough time for ejection before moving on to next step.
             timesUp = self.coralEjectionTimer.autoTimer(0.5)
             if timesUp:
                 self.coreFunctionsInstance.autoDriveReset()
                 self.autonLeftCoatRackSeek = False  # Turning off autoseek so variable can be reset.
-                self.autonStep += 1
+                self.autonStep = 140
 
 
-        if self.autonStep == 117:  # cascade back to base and robot moving on to next target.
+        if self.autonStep == 140:  # cascade back to base and robot moving on to next target.
             self.autonCascadeDownNReset() # Returning cascade to base.
             self.autonCoralSpoonFed = True
             # Venturing to station.
@@ -487,21 +519,34 @@ class MyRobot(wpilib.TimedRobot):
             if gotoNextAutonStep:
                 self.autonStep += 1
 
-        if self.autonStep == 118:  # Autoseek to station for feeding for coral #3
+        if self.autonStep == 141:  # Autoseek to station for feeding for coral #3
             self.autonCoralSpoonFedSeek = True
             if self.coralIntakeFull:  # Fail out when IR sensor tripped from presence of coral in mouth.
                 self.coreFunctionsInstance.autoDriveReset()
                 self.autonCoralSpoonFedSeek = False  # Turn off autoseek
                 self.autonStep += 1
 
-        if self.autonStep == 119:
+        if self.autonStep == 142:
             self.coreFunctionsInstance.stopDriving()
 
         # Position 2
 
-        if self.autonStep == 200:
+        # if self.autonStep == 210:
+        #     angle = 180
+        #     power = 0.8
+        #     distance = 60
+        #     self.autoFaceAngle = 180
+        #     distanceLeft, gotoNextAutonStep = self.coreFunctionsInstance.autoDrive(angle, power,
+        #                                                                            distance)  # failoutTime is optional
+        #     if gotoNextAutonStep:
+        #         self.autonStep += 1
+        #
+        # if self.autonStep == 211:
+        #     self.coreFunctionsInstance.stopDriving()
+
+        if self.autonStep == 210:
             angle = 180
-            power = 0.8  # Was 0.3
+            power = 0.8
             distance = 6
             self.autoFaceAngle = 180
             distanceLeft, gotoNextAutonStep = self.coreFunctionsInstance.autoDrive(angle, power,
@@ -509,30 +554,30 @@ class MyRobot(wpilib.TimedRobot):
             if gotoNextAutonStep:
                 self.autonStep += 1
 
-        if self.autonStep == 201:    # Autoseek activated for coral #1 dropoff
-            self.autonRightCoatRackSeek = True  # Should activate proper pipeline
+        if self.autonStep == 211:    # Autoseek activated for coral #1 dropoff
             if self.teamBlue:
-                self.limelight2Pipeline = self.coral1R_Pos3_Red # Using default pipeline
+                self.limelight2Pipeline = self.coral1R_Pos2_Blue
             else:
-                self.limelight2Pipeline = self.coral1R_Pos3_Red
+                self.limelight2Pipeline = self.coral1R_Pos2_Red
+            self.autonRightCoatRackSeek = True  # Should activate proper pipeline
             # In order to use distance left as a trigger, need to have an autodrive step prior or will crash.
-            if self.thresholdDistanceAutoSeek > self.autoSeekNStopDistanceLeftInInches > 0: # Lift cascade once close enough
+            if self.thresholdDistanceAutoSeekPos2 > self.autoSeekNStopDistanceLeftInInches > 0: # Lift cascade once close enough
                 self.autonCoral4DropOff = True
                 self.autonStep += 1
 
-        if self.autonStep == 202:   # Eject coral once basket in position.
+        if self.autonStep == 212:   # Eject coral once basket in position.
             # self.coreFunctionsInstance.ledBlink(True, 0.25, 0.25)
             if self.coralTilt_Enc.getPosition() > self.coralTilt4 - self.setpointTriggerZoneFine:
                 self.autonCoralEjection = True  # Self resetting
                 self.autonStep += 1
 
-        if self.autonStep == 203:   # Allow enough time for ejection before moving on to next step.
+        if self.autonStep == 213:   # Allow enough time for ejection before moving on to next step.
             timesUp = self.coralEjectionTimer.autoTimer(0.5)
             if timesUp:
                 self.coreFunctionsInstance.autoDriveReset()
                 self.autonStep += 1
 
-        if self.autonStep == 204:   # cascade back to base and robot moving on to next target.
+        if self.autonStep == 214:   # cascade back to base and robot moving on to next target.
             # self.coreFunctionsInstance.ledBlink(False)    # Turning off LED blink
             self.autonRightCoatRackSeek = False  # Turning off autoseek so variable can be reset.
             self.autonCascadeDownNReset() # OOPS
@@ -540,7 +585,7 @@ class MyRobot(wpilib.TimedRobot):
             if timesUp:
                 self.autonStep += 1
 
-        if self.autonStep == 205: # strafing left for algae boot
+        if self.autonStep == 215: # strafing left for algae boot
             angle = 90
             power = 0.5  # Was 0.3
             distance = 14
@@ -550,7 +595,7 @@ class MyRobot(wpilib.TimedRobot):
             if gotoNextAutonStep:
                 self.autonStep += 1
 
-        if self.autonStep == 206: # booting algae 1
+        if self.autonStep == 216: # booting algae 1
             self.autonAlgaeBoot23 = True
             if self.cascadeR_Enc.getPosition() > self.cascadeAlgae23Boot - self.setpointTriggerZoneFine:
                 self.autonStep += 1
@@ -564,13 +609,13 @@ class MyRobot(wpilib.TimedRobot):
             #     if self.cascadeR_Enc.getPosition() > self.cascadeAlgae23Boot - self.setpointTriggerZoneFine:
             #         self.autonStep += 1
 
-        if self.autonStep == 207:
+        if self.autonStep == 217:
             timesUp = self.delayTimer.autoTimer(2.5) #was 1
             if timesUp:
                 self.postAlgaeBootCascadeReset = True   # Lowering and resetting cascade
                 self.autonStep += 1
 
-        if self.autonStep == 208:   # Driving back
+        if self.autonStep == 218:   # Driving back
             self.autonAlgaeBoot23 = False
             self.autonAlgaeBoot34 = False
             angle = 0
@@ -582,17 +627,19 @@ class MyRobot(wpilib.TimedRobot):
             if gotoNextAutonStep:
                 self.autonStep += 1
 
-        if self.autonStep == 209:   # Fork to other options
-            if self.autonOption == 1:
-                self.autonStep = 210
-            elif self.autonOption == 3:
-                self.autonStep = 230
-            else:
-                self.coreFunctionsInstance.stopDriving()
-            # self.coreFunctionsInstance.stopDriving()
+        if self.autonStep == 219:   # Fork to other options
+            self.coreFunctionsInstance.stopDriving()
+
+            # if self.autonOption == 1:
+            #     self.autonStep = 220
+            # elif self.autonOption == 3:
+            #     self.autonStep = 230
+            # else:
+            #     self.coreFunctionsInstance.stopDriving()
+
 
         # algae boot from far center and far right
-        if self.autonStep == 210:
+        if self.autonStep == 220:
             angle = 105
             power = 0.5  # Was 0.3
             distance = 80
@@ -602,7 +649,7 @@ class MyRobot(wpilib.TimedRobot):
             if gotoNextAutonStep:
                 self.autonStep += 1
 
-        if self.autonStep == 211:
+        if self.autonStep == 221:
             self.autonAlgaeBootSeek = True  # Should activate proper pipeline
             self.limelight2Pipeline = self.algaeBootPipeline
             currentVelocity = self.coreFunctionsInstance.currentVelocity()  # This triggering method is good when there is no rush to do what's next.
@@ -612,12 +659,12 @@ class MyRobot(wpilib.TimedRobot):
                     self.coreFunctionsInstance.autoDriveReset()
                     self.autonStep += 1
 
-        if self.autonStep == 212:
+        if self.autonStep == 222:
             self.autonAlgaeBoot34 = True
             if self.cascadeR_Enc.getPosition() > self.cascadeAlgae34Boot - self.setpointTriggerZoneFine:
                 self.autonStep += 1
 
-        if self.autonStep == 213:
+        if self.autonStep == 223:
             self.autonAlgaeBoot34 = False
             angle = 60
             power = 0.5  # Was 0.3
@@ -628,7 +675,7 @@ class MyRobot(wpilib.TimedRobot):
             if gotoNextAutonStep:
                 self.autonStep += 1
 
-        if self.autonStep == 214:
+        if self.autonStep == 224:
             self.coreFunctionsInstance.stopDriving()
 
         # algae boot from far center and far left
@@ -672,21 +719,18 @@ class MyRobot(wpilib.TimedRobot):
             self.coreFunctionsInstance.stopDriving()
 
         # Position 3
-        if self.autonStep == 300: # the power is a % of speedLimitMultiplier. Can increase self.speedLimitMultiplier to speed up.
+        if self.autonStep == 315: # the power is a % of speedLimitMultiplier. Can increase self.speedLimitMultiplier to speed up.
             angle = 180
-            power = 0.8 # Was 1
-            distance = 80   # was 60
-            self.autoFaceAngle = -120
+            power = 0.8 # Was 0.85
+            distance = 75  # was 80
+            self.autoFaceAngle = -120 #was -130
             distanceLeft, gotoNextAutonStep = self.coreFunctionsInstance.autoDrive(angle, power, distance) # failoutTime is optional
-            if self.thresholdDistanceAutoDrive_Coral1 > distanceLeft > 0:  # Lift cascade once close enough
-                if self.newAutonCascade:
-                    self.autonCoral4DropOff = True
-                    self.newAutonCascade = False  # Restricting self.autonCoral4DropOff to 1 cycle so reverse ejection during lift not repeated
             if gotoNextAutonStep:
-                self.newAutonCascade = True  # Resetting
+                # self.cascadeConfigOnTheFly(-0.22, 0.30) #min was -0.2, Max was 0.35
+                self.autonCoral4DropOff = True
                 self.autonStep += 1
 
-        if self.autonStep == 301:    # Autoseek activated for coral #1 dropoff / right coat rack
+        if self.autonStep == 316:    # Autoseek activated for coral #1 dropoff / right coat rack
             if self.teamBlue:
                 self.limelight2Pipeline = self.coral1R_Pos3_Blue
             else:
@@ -695,166 +739,160 @@ class MyRobot(wpilib.TimedRobot):
             self.autonRightCoatRackSeek = True  # Should activate proper pipeline
 
             self.autonStep += 1
-            # if self.thresholdDistanceAutoSeek > self.autoSeekNStopDistanceLeftInInches > 0: # OG method based in autoseek. Too late. Lift cascade once close enough
-            #     self.autonCoral4DropOff = True
-            #     self.autonStep += 1
 
-        if self.autonStep == 302:   # Eject coral once basket in position.
-            if self.coralTilt_Enc.getPosition() > self.coralTilt4 - self.setpointTriggerZoneFine:
+        if self.autonStep == 317:   # Eject coral once basket in position.
+            if self.coralTilt_Enc.getPosition() > self.coralTilt4Auton - self.setpointTriggerZoneFine:
                 self.autonCoralEjection = True  # Self resetting
                 self.autonStep += 1
 
-        if self.autonStep == 303:   # Allow enough time for ejection before moving on to next step.
+        if self.autonStep == 318:   # Allow enough time for ejection before moving on to next step.
             timesUp = self.coralEjectionTimer.autoTimer(0.5)
             if timesUp:
                 self.coreFunctionsInstance.autoDriveReset()
                 self.autonRightCoatRackSeek = False  # Turning off autoseek so variable can be reset.
-                self.autonStep += 1
+                self.autonStep = 320
 
-        if self.autonStep == 304:   # cascade back to base and robot moving on to next target.
+        if self.autonStep == 320:   # cascade back to base and robot moving on to next target.
             self.autonCascadeDownNReset()   # OOPS
             # Venturing to station. Clear coat rack first.
-            angle = 143
+            angle = 143 # was 150
             power = 1 # Was 0.8
-            distance = 60
+            distance = 70 #was 40
             self.autoFaceAngle = -120
             distanceLeft, gotoNextAutonStep = self.coreFunctionsInstance.autoDrive(angle, power,
                                                                                    distance)  # failoutTime is optional
             if gotoNextAutonStep:
                 self.autonStep += 1
 
-        if self.autonStep == 305:   # cascade back to base and robot moving on to next target.
+        if self.autonStep == 321:   # cascade back to base and robot moving on to next target.
             # Venturing to front of station
             self.autonCoralSpoonFed = True  # Get intake into station feed position
-            angle = 175
-            power = 0.85  # Was 0.8
-            distance = 80
+            angle = 175 #was 165
+            power = 0.95  # Was 0.85
+            distance = 70 # was 76
             self.autoFaceAngle = -130
             distanceLeft, gotoNextAutonStep = self.coreFunctionsInstance.autoDrive(angle, power,
                                                                                    distance)  # failoutTime is optional
             if gotoNextAutonStep:
                 self.autonStep += 1
 
-        if self.autonStep == 306:  # Autoseek to station for feeding for coral #2
+        if self.autonStep == 322:  # Autoseek to station for feeding for coral #2
             self.autonCoralSpoonFedSeek = True
             if self.coralIntakeFull:    # Fail out when IR sensor tripped from presence of coral in mouth.
                 self.coreFunctionsInstance.autoDriveReset()
                 self.autonCoralSpoonFedSeek = False     # Turn off autoseek
-                if self.autonOption == 3:   # 3 piece.
-                    self.autonStep += 1
-                elif self.autonOption == 2: # same 3 piece for now.
-                    self.autonStep += 1
-                else:   # same 3 piece for now.
-                    self.autonStep += 1
+                self.autonStep = 325
 
-        if self.autonStep == 307:   # Setup drive for CoatRack
-            angle = 340
-            power = 0.9  # Was 0.8
-            distance = 103
-            self.autoFaceAngle = -60
+                # if self.autonOption == 3:   # 3 piece.
+                #     self.autonStep = 325
+                # elif self.autonOption == 2: # same 3 piece for now.
+                #     self.autonStep = 325
+                # else:   # same 3 piece for now.
+                #     self.autonStep = 325
+
+        if self.autonStep == 325:   # Setup drive for CoatRack
+            angle = 335 #was 340
+            power = 0.8  # Was 0.9
+            distance = 103 #was 105
+            self.autoFaceAngle = -60 #was -75
             distanceLeft, gotoNextAutonStep = self.coreFunctionsInstance.autoDrive(angle, power,
                                                                                    distance)  # failoutTime is optional
-            if self.thresholdDistanceAutoDrive_Coral2 > distanceLeft > 0: # Lift cascade once close enough
-                if self.newAutonCascade:
-                    self.autonCoralSpoonFed = False
-                    self.autonCoral4DropOff = True
-                    self.newAutonCascade = False  # Restricting self.autonCoral4DropOff to 1 cycle so reverse ejection during lift not repeated
             if gotoNextAutonStep:
-                self.newAutonCascade = True  # Resetting
+                # self.cascadeConfigOnTheFly(-0.22, 0.26) #min was -0.2 and max was 0.32 # Default is min = 0.18, max = 0.35
+                self.autonCoralSpoonFed = False
+                self.autonCoral4DropOff = True  # Self resetting in a one off
                 self.autonStep += 1
 
-        if self.autonStep == 308:    # Autoseek activated for coral #2 dropoff
+        if self.autonStep == 326:    # Autoseek activated for coral #2 dropoff
             if self.teamBlue:
                 self.limelight2Pipeline = self.coral2R_Pos3_Blue
             else:
                 self.limelight2Pipeline = self.coral2R_Pos3_Red
-
-            self.newAutonCascade = True  # Resetting
             self.coreFunctionsInstance.autoDriveReset()
 
-            self.autonRightCoatRackSeek = True  # Should activate proper pipeline
-
+            self.autonRightCoatRackSeek = True
             self.autonStep += 1
 
-        if self.autonStep == 309:   # Eject coral once basket in position.
-            if self.coralTilt_Enc.getPosition() > self.coralTilt4 - self.setpointTriggerZoneFine:
+        if self.autonStep == 327:   # Eject coral once basket in position.
+            if self.coralTilt_Enc.getPosition() > self.coralTilt4Auton - self.setpointTriggerZoneFine:
                 self.autonCoralEjection = True  # Self resetting
                 self.autonStep += 1
 
-        if self.autonStep == 310:   # Allow enough time for ejection before moving on to next step.
+        if self.autonStep == 328:   # Allow enough time for ejection before moving on to next step.
             timesUp = self.coralEjectionTimer.autoTimer(0.5)
             if timesUp:
+                # self.cascadeConfigOnTheFly(-0.18, self.cascadeOutputCoralMax)  # Default is min = 0.18, max = 0.35. Readying for teleop
                 self.coreFunctionsInstance.autoDriveReset()
                 self.autonRightCoatRackSeek = False  # Turning off autoseek so variable can be reset.
-                self.autonStep += 1
+                self.autonStep = 330
 
-        if self.autonStep == 311:   # cascade back to base and robot moving on to next target.
-            self.autonCascadeDownNReset() # Returning cascade to base.
-            self.autonCoralSpoonFed = True
-            # Venturing to station.
-            angle = 150
-            power = 0.85  # Was 0.8
-            distance = 80
-            self.autoFaceAngle = -130
-            distanceLeft, gotoNextAutonStep = self.coreFunctionsInstance.autoDrive(angle, power,
-                                                                                   distance)  # failoutTime is optional
-            if gotoNextAutonStep:
-                self.autonStep += 1
+        if self.autonStep == 330:
+            self.autonCascadeDownNReset()
+            self.coreFunctionsInstance.stopDriving()
 
-        if self.autonStep == 312:  # Autoseek to station for feeding for coral #3
+        # if self.autonStep == 330:   # cascade back to base and robot moving on to next target.
+        #     self.autonCascadeDownNReset() # Returning cascade to base.
+        #     self.autonCoralSpoonFed = True
+        #     # Venturing to station.
+        #     angle = 150
+        #     power = 0.95  # Was 0.8
+        #     distance = 80
+        #     self.autoFaceAngle = -130
+        #     distanceLeft, gotoNextAutonStep = self.coreFunctionsInstance.autoDrive(angle, power,
+        #                                                                            distance)  # failoutTime is optional
+        #     if gotoNextAutonStep:
+        #         self.autonStep += 1
+
+        if self.autonStep == 331:  # Autoseek to station for feeding for coral #3
             self.autonCoralSpoonFedSeek = True
             if self.coralIntakeFull:  # Fail out when IR sensor tripped from presence of coral in mouth.
                 self.coreFunctionsInstance.autoDriveReset()
                 self.autonCoralSpoonFedSeek = False  # Turn off autoseek
-                self.autonStep += 1
+                self.autonStep = 335
 
-        if self.autonStep == 313:  # Start of autodrive to coral 3 drop off
-            angle = 340
-            power = 0.9  # Was 0.8
-            distance = 103
-            self.autoFaceAngle = -60
+        if self.autonStep == 335:  # Start of autodrive to coral 3 drop off
+            angle = 340 # Was 330
+            power = 0.8  # Was 0.9
+            distance = 93 # was 103
+            self.autoFaceAngle = -60 #was -65
             distanceLeft, gotoNextAutonStep = self.coreFunctionsInstance.autoDrive(angle, power,
                                                                                    distance)  # failoutTime is optional
-            if self.thresholdDistanceAutoDrive_Coral3 > distanceLeft > 0: # Lift cascade once close enough
-                if self.newAutonCascade:
-                    self.autonCoralSpoonFed = False
-                    self.autonCoral4DropOff = True
-                    self.newAutonCascade = False  # Restricting self.autonCoral4DropOff to 1 cycle so reverse ejection during lift not repeated
             if gotoNextAutonStep:
-                self.newAutonCascade = True  # Resetting
+                # self.cascadeConfigOnTheFly(-0.22, 0.26) #min was 0.14 and max was 0.3  # Default is min = 0.18, max = 0.35
+                self.autonCoralSpoonFed = False
+                self.autonCoral4DropOff = True  # Self resetting in a one off
                 self.autonStep += 1
 
-        if self.autonStep == 314:  # Autoseek activated for coral #3 dropoff
+        if self.autonStep == 336:  # Autoseek activated for coral #3 dropoff
+            self.newAutonCascade = True
             if self.teamBlue:
                 self.limelight2Pipeline = self.coral3L_Pos3_Blue
             else:
                 self.limelight2Pipeline = self.coral3L_Pos3_Red
-
-            self.newAutonCascade = True  # Resetting
             self.coreFunctionsInstance.autoDriveReset()
 
-            self.autonLeftCoatRackSeek = True  # Should activate proper pipeline
-
+            self.autonLeftCoatRackSeek = True
             self.autonStep += 1
 
-        if self.autonStep == 315:   # Eject coral once basket in position.
-            if self.coralTilt_Enc.getPosition() > self.coralTilt4 - self.setpointTriggerZoneFine:
+        if self.autonStep == 337:   # Eject coral once basket in position.
+            if self.coralTilt_Enc.getPosition() > self.coralTilt4Auton - self.setpointTriggerZoneFine:
                 self.autonCoralEjection = True  # Self resetting
                 self.autonStep += 1
 
-        if self.autonStep == 316:   # Allow enough time for ejection before moving on to next step.
+        if self.autonStep == 338:   # Allow enough time for ejection before moving on to next step.
             timesUp = self.coralEjectionTimer.autoTimer(0.5)
             if timesUp:
+                # self.cascadeConfigOnTheFly(-0.18, self.cascadeOutputCoralMax)  # Default is min = 0.18, max = 0.35. Readying for teleop
                 self.coreFunctionsInstance.autoDriveReset()
                 self.autonLeftCoatRackSeek = False  # Turning off autoseek so variable can be reset.
-                self.autonStep += 1
+                self.autonStep = 340
 
-        if self.autonStep == 317:  # cascade back to base and robot moving on to next target.
+        if self.autonStep == 340:  # cascade back to base and robot moving on to next target.
             self.autonCascadeDownNReset() # Returning cascade to base.
             self.autonCoralSpoonFed = True
             # Venturing to station.
             angle = 150
-            power = 0.85  # Was 0.8
+            power = 0.8  # Was 0.85
             distance = 80
             self.autoFaceAngle = -130
             distanceLeft, gotoNextAutonStep = self.coreFunctionsInstance.autoDrive(angle, power,
@@ -862,14 +900,28 @@ class MyRobot(wpilib.TimedRobot):
             if gotoNextAutonStep:
                 self.autonStep += 1
 
-        if self.autonStep == 318:  # Autoseek to station for feeding for coral #3
+        if self.autonStep == 341:  # Autoseek to station for feeding for coral #3
             self.autonCoralSpoonFedSeek = True
             if self.coralIntakeFull:  # Fail out when IR sensor tripped from presence of coral in mouth.
                 self.coreFunctionsInstance.autoDriveReset()
                 self.autonCoralSpoonFedSeek = False  # Turn off autoseek
                 self.autonStep += 1
 
-        if self.autonStep == 319:
+        if self.autonStep == 342:
+            self.coreFunctionsInstance.stopDriving()
+
+        if self.autonStep == 400:
+            angle = 180
+            power = 0.8
+            distance = 60
+            self.autoFaceAngle = 0
+            distanceLeft, gotoNextAutonStep = self.coreFunctionsInstance.autoDrive(angle, power,
+                                                                                   distance)  # failoutTime is optional
+            if gotoNextAutonStep:
+                self.autonStep += 1
+
+        if self.autonStep == 401:
+            self.coreFunctionsInstance.autoDriveReset()
             self.coreFunctionsInstance.stopDriving()
 
 
@@ -910,12 +962,16 @@ class MyRobot(wpilib.TimedRobot):
         self.autonomous = False
         self.teleoperated = True
         self.autonTeleop_InitDefaults()
+        
+        # # In case not reset at end of auton, the cascade Min Max is reset as default
+        # self.cascadeConfigOnTheFly(-0.18,
+        #                            self.cascadeOutputCoralMax)  # Default is min = 0.18, max = 0.35. Readying for teleop
 
         if self.teleopFirst:    # This is the reason why after a new code upload, north is now front of the robot since enter teleop directly.
             self.gyroCompensation = 0
             self.autoFaceAngle = 0
 
-    def teleopPeriodic(self):   # teleop
+    def teleopPeriodic(self):   # teleCode
         """This function is called periodically during operator control."""
         self.variableResets()   # variables setting to default prior to manipulation below
 
@@ -953,6 +1009,7 @@ class MyRobot(wpilib.TimedRobot):
 
         self.actualActuation()
 
+        self.DIO_Telemetry()
         # Telemetry
         # self.coreFunctionsInstance.driveTelemetry()
         # self.coreFunctionsInstance.cancoderTelemetry()
@@ -974,7 +1031,7 @@ class MyRobot(wpilib.TimedRobot):
         self.autonomous = False
         self.teleoperated = False
 
-    def disabledPeriodic(self):
+    def disabledPeriodic(self): # disCode
         # Telemetry
         self.coreFunctionsInstance.driveTelemetry()
         # self.coreFunctionsInstance.navxTelemetry()    # This was crashing in disabled
@@ -1005,15 +1062,15 @@ class MyRobot(wpilib.TimedRobot):
         self.turtleneck_PID.setReference(self.turtleneckSetpoint, SparkLowLevel.ControlType.kPosition)
         self.coralEject_PID.setReference(self.coralEjectSetpoint, SparkLowLevel.ControlType.kPosition)
         self.climb_PID.setReference(self.climbSetpoint, SparkLowLevel.ControlType.kPosition)
-        self.cageHerder_PID.setReference(self.cageHerderSetpoint, SparkLowLevel.ControlType.kPosition)
+        self.mouseTrap_PID.setReference(self.mouseTrapSetpoint, SparkLowLevel.ControlType.kPosition)
 
     # Essential robot specific constants and Primers (Prime variables to prevent crashes), some modified downstream
     # and remain as is between modes and not reset so to prevent sudden movements upon robot enabling
-    def robotInitDefaults(self):
+    def robotInitDefaults(self):       # tune
         #autoSeekAndStop tuning variables
-        self.maxAutoSeekNStopSpeed = 0.6 # do not touch
-        self.virtualStickPower = 0.6   # Secondary power control behind speedLimitMultiplier, which its a fraction of
-        self.virtualStickPower2 = 0.5  # Secondary power control behind speedLimitMultiplier, which its a fraction of
+        self.maxAutoSeekNStopSpeed = 0.63 #was 0.6 # do not touch
+        self.virtualStickPower = 0.6   # Secondary power control behind speedLimitMultiplier, which it's a fraction of
+        self.virtualStickPower2 = 0.5  # Secondary power control behind speedLimitMultiplier, which it's a fraction of
         self.emergencyBrakeDistance = 38  # in inches from station where emergency stop occurs
         self.emergencyBrakeDistance2 = 0 # in inches from coat rack where emergency stop occurs
         self.decelFudgeFactor = 1   # CANNOT BE 0! decelFudgeFactor range is 1-3. >1 is increasing braking.
@@ -1025,27 +1082,35 @@ class MyRobot(wpilib.TimedRobot):
         self.emergencyTransfer = False
 
         self.newAutonCascade = True
-        self.thresholdDistanceAutoSeek = 40  # in inches
+        # Following only for position 1 auton. Position 3 not need since cascade goes up when limelightAutoseek kicks in
         self.thresholdDistanceAutoDrive_Coral1 = 20  # in inches
         self.thresholdDistanceAutoDrive_Coral2 = 25  # in inches
-        self.thresholdDistanceAutoDrive_Coral3 = 25  # in inches
+        self.thresholdDistanceAutoDrive_Coral3 = 30  # was 25
+
+        # As of 3-21-25, NO LONGER USED. Controlling Cascade elevation speed more in vogue now.
+        self.thresholdDistanceAutoseek_Pos3Coral2 = 16  # in inches
+        self.thresholdDistanceAutoseek_Pos3Coral3 = 22   # in inches - was 22
+        self.thresholdDistanceAutoSeekPos2= 40  # in inches
 
         # Limelight2 Pipeline Tuning
         self.coral1R_Pos1_Blue = 7
-        self.coral2R_Pos1_Blue = 7  # 7 is neutral for right rack. Higher number = move more to right.
-        self.coral3L_Pos1_Blue = 2
+        self.coral2R_Pos1_Blue = 8  # Was 7. 7 is neutral for right rack. Higher number = move more to right.
+        self.coral3L_Pos1_Blue = 1  # Was 2.
 
         self.coral1R_Pos1_Red = 7
         self.coral2R_Pos1_Red = 7
         self.coral3L_Pos1_Red = 2
 
-        self.coral1R_Pos3_Blue = 7
+        self.coral1R_Pos3_Blue = 8 #was 7
         self.coral2R_Pos3_Blue = 7
         self.coral3L_Pos3_Blue = 2
 
         self.coral1R_Pos3_Red = 7   # Default for position 2
         self.coral2R_Pos3_Red = 7
         self.coral3L_Pos3_Red = 2
+
+        self.coral1R_Pos2_Blue = 7
+        self.coral1R_Pos2_Red = 8
 
         self.algaeBootPipeline = 4
 
@@ -1076,7 +1141,7 @@ class MyRobot(wpilib.TimedRobot):
         self.coralIntakeWristTransfer = 0   # Starting point
         self.coralIntakeWristSpoonFed = 13.5 #was 12 #was 11.6  # pick up coral at station
         self.coralIntakeWristSpoonFed_HailMary = 11.9
-        self.coralIntakeWristPreTrough = 15 # *** This needs to be tuned ***
+        self.coralIntakeWristPreTrough = 15
         self.coralIntakeWristTrough = 22.5
         self.coralIntakeWristAlgae= 13 #was 15 (too tight), 12.5 # was 11.4
         self.coralIntakeWristPickup = 16 #was 14.5 # was 12.2 # Possible update
@@ -1099,6 +1164,7 @@ class MyRobot(wpilib.TimedRobot):
         self.coralTilt123 = 6 #was 6
         self.coralTilt123_HailMary = 5.5 #was 5
         self.coralTilt4 = 8 #was 7
+        self.coralTilt4Auton = 7.5
         self.coralTilt4_HailMary = 6.5 # was 7
         self.coralTiltClimb = 11.5 #was 11.2
         self.coralTiltSetpoint = self.coralTiltBase
@@ -1108,8 +1174,8 @@ class MyRobot(wpilib.TimedRobot):
         self.cascade1 = 6 #was 8
         self.cascade2 = 10.5 # was 11
         self.cascade3 = 19.5 #was 24
-        self.cascade4 = 33 #33 is absolute max
-        self.cascadeMax = 33 #was 35    # Need be verified *** OOPS
+        self.cascade4 = 33.5 #34 is absolute max
+        self.cascadeMax = 33.5 #was 35    # Need be verified *** OOPS
         self.cascadeAlgae23PreBoot = 5    # Setup for algae 23 Boot
         self.cascadeAlgae23Boot = 8 #was 10   # Algae 23 Boot
         self.cascadeAlgae34PreBoot = 13  # Setup for algae 34 Boot
@@ -1121,7 +1187,7 @@ class MyRobot(wpilib.TimedRobot):
         self.postAlgaeBootCascadeReset = False
 
         self.turtleneckIn = 0
-        self.turtleneckOut = 70 #was 77
+        self.turtleneckOut = 70 # was 77
         self.turtleneckBoot = 96 # was 86
         self.turtleneckClimb = 65
         self.turtleneckMax = self.turtleneckBoot    # For now. May need to extend more.
@@ -1142,10 +1208,10 @@ class MyRobot(wpilib.TimedRobot):
         self.climbUpMax = 100
         self.climbSetpoint = self.climbBase
 
-        self.cageHerderCoralBlocker = 0
-        self.cageHerderClosed = 4
-        self.cageHerderOpen = 18
-        self.cageHerderSetpoint = self.cageHerderCoralBlocker
+        self.mouseTrapCoralBlocker = 0
+        self.mouseTrapClosed = 7 #was 3.3
+        self.mouseTrapOpen = 30
+        self.mouseTrapSetpoint = self.mouseTrapCoralBlocker
         self.newClimb = True
     
     def autonTeleop_InitDefaults(self):    # Primers / Universal defaults re-establishing
@@ -1213,13 +1279,14 @@ class MyRobot(wpilib.TimedRobot):
 
         # Driver activating preset positions for climb
         if self.joystick0.getLeftBumper() and self.joystick0.getRightBumper():
-            if self.newClimb:
-                self.cageHerder_Enc.setPosition(0)
-                self.newClimb = False
+            # if self.newClimb:
+            #     self.mouseTrap_Enc.setPosition(0)
+            #     self.newClimb = False
             self.coralIntakeWristSetpoint = self.coralIntakeWristClimb
             self.coralIntakeElbowSetpoint = self.coralIntakeElbowClimb
             self.coralTiltSetpoint = self.coralTiltClimb
-            self.cageHerderSetpoint = self.cageHerderOpen
+            self.mouseTrapSetpoint = self.mouseTrapOpen
+            # self.coreFunctionsInstance.ledLimelightPub2.set(1)
             # self.coreFunctionsInstance.pipelineLimelightPub2.set(3)
             # most effective way is to turn off Green LED since pipelines all used up.
 
@@ -1227,14 +1294,14 @@ class MyRobot(wpilib.TimedRobot):
             self.coralIntakeWristSetpoint = self.coralIntakeWristTransfer
             self.coralIntakeElbowSetpoint = self.coralIntakeElbowTransfer
             self.coralTiltSetpoint = self.coralTiltBase
-            self.cageHerderSetpoint = self.cageHerderCoralBlocker
+            self.mouseTrapSetpoint = self.mouseTrapCoralBlocker
             self.newClimb = True
 
-        ## Test code
+        ## Test Code
         # if self.joystick0.getPOV() == 90:
-        #     self.cageHerderSetpoint = self.cageHerderOpen
+        #     self.mouseTrapSetpoint = self.mouseTrapOpen
         # elif self.joystick0.getPOV() == 270:
-        #     self.cageHerderSetpoint = self.cageHerderCoralBlocker
+        #     self.mouseTrapSetpoint = self.mouseTrapCoralBlocker
 
         if (abs(self.joystick0.getLeftX()) > self.joystickDeadzone or abs(self.joystick0.getLeftY()) > self.joystickDeadzone) and self.joystick0.getXButton():
             self.fieldCentric = False   # Driver able to turn off fieldCentric for FPV strafing
@@ -1248,36 +1315,34 @@ class MyRobot(wpilib.TimedRobot):
         # Driver controlled climb, allowed only if wrist and tilt in climb preset positions.
         if (((self.coralIntakeWristClimb + self.setpointTriggerZone * 1.5) > self.coralIntakeWrist_Enc.getPosition() > (self.coralIntakeWristClimb - self.setpointTriggerZone * 1.5)) and
                 (self.coralTilt_Enc.getPosition() > (self.coralTiltClimb - self.setpointTriggerZone * 1.5))):
-            # cageHerder starts from open to close between trigger 0 to midpoint. Beyond midpoint, it remains closed.
+            # mouseTrap starts from open to close between trigger 0 to midpoint. Beyond midpoint, it remains closed.
             if self.joystick0.getLeftTriggerAxis() <= 0.5:
-                self.cageHerderSetpoint = self.cageHerderOpen - ((self.joystick0.getLeftTriggerAxis() * 2) * (self.cageHerderOpen - self.cageHerderClosed))
+                self.mouseTrapSetpoint = self.mouseTrapOpen - ((self.joystick0.getLeftTriggerAxis() * 2) * (self.mouseTrapOpen - self.mouseTrapClosed))
             elif self.joystick0.getLeftTriggerAxis() > 0.5:
-                self.cageHerderSetpoint = self.cageHerderClosed
+                self.mouseTrapSetpoint = self.mouseTrapClosed
 
-            # # Climb happens between trigger midpoint and max and cageHerder in closed position
-            # if self.joystick0.getLeftTriggerAxis() > 0.5 and ((self.cageHerderClosed - self.setpointTriggerZone) < self.cageHerder_Enc.getPosition() < (self.cageHerderClosed + self.setpointTriggerZone)):
-            #     self.climbSetpoint = (self.joystick0.getLeftTriggerAxis() - 0.5) * 2 * self.climbUpMax
-            # # elif self.joystick0.getLeftTriggerAxis() <= 0.5:
-            # #     self.climbSetpoint = self.climbBase
-
-            if (self.cageHerderClosed - self.setpointTriggerZone) < self.cageHerder_Enc.getPosition() < (self.cageHerderClosed + self.setpointTriggerZone):
+            # # Climb happens between trigger midpoint and max and mouseTrap in closed position. Balancing config now baked in here.
+            if (self.mouseTrapClosed - self.setpointTriggerZone) < self.mouseTrap_Enc.getPosition() < (self.mouseTrapClosed + self.setpointTriggerZone):
                 if self.joystick0.getLeftTriggerAxis() <= 0.5:
                     self.climbSetpoint = self.climbBase
+                    self.coralIntakeElbowSetpoint = self.coralIntakeElbowClimb
+                    self.coralIntakeWristSetpoint = self.coralIntakeWristClimb
                 elif self.joystick0.getLeftTriggerAxis() > 0.5:
                     self.climbSetpoint = (self.joystick0.getLeftTriggerAxis() - 0.5) * 2 * self.climbUpMax
+                    self.coralIntakeElbowSetpoint = self.coralIntakeElbowClimbBalance
+                    self.coralIntakeWristSetpoint = self.coralIntakeWristClimbBalance
 
-
-
-        if self.climb_Enc.getPosition() > (self.climbUpMax - self.setpointTriggerZone * 2):
-            self.coralIntakeElbowSetpoint = self.coralIntakeElbowClimbBalance
-            self.coralIntakeWristSetpoint = self.coralIntakeWristClimbBalance
-        elif (self.climbUpMax - self.setpointTriggerZone * 2) >= self.climb_Enc.getPosition() > self.setpointTriggerZoneLarge:
-            self.coralIntakeElbowSetpoint = self.coralIntakeElbowClimb
-            self.coralIntakeWristSetpoint = self.coralIntakeWristClimb
+        ## The following is no longer needed since already baked in above.
+        # if self.climb_Enc.getPosition() > (self.climbUpMax - self.setpointTriggerZone * 2):
+        #     self.coralIntakeElbowSetpoint = self.coralIntakeElbowClimbBalance
+        #     self.coralIntakeWristSetpoint = self.coralIntakeWristClimbBalance
+        # elif (self.climbUpMax - self.setpointTriggerZone * 2) >= self.climb_Enc.getPosition() > self.setpointTriggerZoneLarge:
+        #     # This is included in the main loop and the "> self.setpointTriggerZoneLarge" prevents Elbow and Wrist from going into in climb position at start.
+        #     self.coralIntakeElbowSetpoint = self.coralIntakeElbowClimb
+        #     self.coralIntakeWristSetpoint = self.coralIntakeWristClimb
 
         # Reading driver control inputs (Overwritten downstream so automated Gadget actions override Driver actions)
         self.coreFunctionsInstance.readingJoysticks(self.speedLimitMultiplier)
-
 
     def intakeControl(self):    # Shared intake control between Auton and Teleop
         # If in auton, need be called continuously for proper function, not just called in step.
@@ -1476,13 +1541,13 @@ class MyRobot(wpilib.TimedRobot):
                 self.cascadeSetpoint = self.cascade3
                 self.turtleneckSetpoint = self.turtleneckOut
 
-            if self.joystick1.getYButtonPressed() or self.autonCoral4DropOff:
+            if self.joystick1.getYButtonPressed() or self.autonCoral4DropOff:   #*** in auton, this has to be a one off and not in a loop ***
                 self.cascade4Active = True
                 self.coralTiltHailMaryMode = False
                 self.coralEjectSetpoint = self.coralEjectSetpoint - self.coralEjectIncrement    # Suck front dangling coral back in
                 self.cascadeSetpoint = self.cascade4
                 self.turtleneckSetpoint = self.turtleneckOut
-                self.autonCoral4DropOff = False  # Auto Reset to prevent repeat. This method not work well since inciting statement
+                self.autonCoral4DropOff = False  # Auto Reset to prevent repeat. This method not work well since upper level unintended looping
                 # continue to revert self.autonCoral4DropOff = True
 
         # Setting up cascade and turtleneck for a hail Mary coral drop when a coral is jammed between robot and reef
@@ -1512,6 +1577,8 @@ class MyRobot(wpilib.TimedRobot):
         if ((self.cascade4 - self.setpointTriggerZone * 3) < self.cascadeR_Enc.getPosition() < (self.cascade4 + self.setpointTriggerZone * 3.5)) and self.cascade4Active:
             if self.coralTiltHailMaryMode:
                 self.coralTiltSetpoint = self.coralTilt4_HailMary
+            elif not self.teleoperated:
+                self.coralTiltSetpoint = self.coralTilt4Auton
             else:
                 self.coralTiltSetpoint = self.coralTilt4
         elif ((self.cascade3 - self.setpointTriggerZone * 3) < self.cascadeR_Enc.getPosition() < (self.cascade3 + self.setpointTriggerZone * 3.5)) and self.cascade3Active:
@@ -1635,9 +1702,9 @@ class MyRobot(wpilib.TimedRobot):
                     self.limelight2Pipeline = self.coral3L_Pos1_Blue
                 self.coreFunctionsInstance.pipelineLimelightPub2.set(self.limelight2Pipeline)  # limelight aprilTag left bias detection
                 if self.teleoperated:
-                    self.lastInchesLeft = 4 #was 3 # Effects autoseek in teleop
+                    self.lastInchesLeft = 3 #was 4 # Effects autoseek in teleop
                 else:
-                    self.lastInchesLeft = 2 # Effects autoseek in auton
+                    self.lastInchesLeft = 0 #was 1 # Effects autoseek in auton
                 # if self.newPipeline2:
                 #     self.coreFunctionsInstance.pipelineLimelightPub2.set(2)  # limelight aprilTag left bias detection
                 #     # self.coreFunctionsInstance.pipelineLimelightPub.set(1)  # limelight 1 LED Off
@@ -1650,12 +1717,12 @@ class MyRobot(wpilib.TimedRobot):
                 driveAngleFudgeFactorLocal = self.driveAngleFudgeFactor2
                 faceAngleFudgeFactorLocal = self.faceAngleFudgeFactor2
                 if self.teleoperated:
-                    self.limelight2Pipeline = self.coral1R_Pos1_Blue
+                    self.limelight2Pipeline = self.coral1R_Pos1_Blue    # General pipeline that works for right rack
                 self.coreFunctionsInstance.pipelineLimelightPub2.set(self.limelight2Pipeline)  # limelight aprilTag right bias detection
                 if self.teleoperated:
                     self.lastInchesLeft = 2 # was 1 # Effects autoseek in teleop
                 else:
-                    self.lastInchesLeft = 2 #was 2 # Effects autoseek in auton
+                    self.lastInchesLeft = 1 #was 0 # Effects autoseek in auton
                 # if self.newPipeline2:
                 #     self.coreFunctionsInstance.pipelineLimelightPub2.set(3)  # limelight aprilTag right bias detection
                 #     # self.coreFunctionsInstance.pipelineLimelightPub.set(1)  # limelight 1 LED Off
@@ -1688,7 +1755,7 @@ class MyRobot(wpilib.TimedRobot):
 
             elif self.incompleteJourney:    # This portion only entered if lockedOn occurred earlier, or the initial parameters passed would not be relevant
                 #   self.autonomous, self.fieldCentric, self.autoFaceAngle should all still be assigned properly elsewhere.
-                # Last saved parameters passes down to autoDrive to help complete the journey. Bo braking power is handled here.
+                # Last saved parameters passes down to autoDrive to help complete the journey. No braking power is handled here.
                 self.coreFunctionsInstance.ledOff()  # Turn LED off # OOPS
                 self.coreFunctionsInstance.autoDrive(self.autoSeekNStopAngle, self.autoSeekNStopPower, self.lastInchesLeft) # failoutTime is optional. Using autodrive route.
 
@@ -1747,7 +1814,7 @@ class MyRobot(wpilib.TimedRobot):
             self.cascadeSetpoint = self.cascadeBase
             self.turtleneckSetpoint = self.turtleneckIn
             self.climbSetpoint = self.climbBase
-            self.cageHerderSetpoint = self.cageHerderCoralBlocker
+            self.mouseTrapSetpoint = self.mouseTrapCoralBlocker
             self.coreFunctionsInstance.ledOff()
             self.algaeIntake = False  # Redundant
             self.coralTroughDrop = False  # Redundant
@@ -1760,8 +1827,8 @@ class MyRobot(wpilib.TimedRobot):
             self.cascade4Active = False
             self.coralTiltHailMaryMode = False
             self.coralSpoonFedHailMaryMode = False
-            self.cascadeConfigOnTheFly(-0.18,
-                                       self.cascadeOutputCoralMax)  # OG setting. Called 1 time only to change motor output
+            # self.cascadeConfigOnTheFly(-0.18,
+            #                            self.cascadeOutputCoralMax)  # OG setting. Called 1 time only to change motor output
             self.autonRobotDefault = False  # Auto Reset to prevent repeat. Ineffective since constantly called in repeated cycles.
 
     def autonCascadeDownNReset(self):
@@ -1802,6 +1869,14 @@ class MyRobot(wpilib.TimedRobot):
         self.coralIntakeWrist.configure(self.coralIntakeWrist_config, SparkBase.ResetMode.kResetSafeParameters,
                                         SparkBase.PersistMode.kPersistParameters)
 
+    # def mouseTrapConfigOnTheFly(self, min, max):
+    #     self.mouseTrap_config.inverted(False)
+    #     self.mouseTrap_config.closedLoop.pid(0.1, 0.0, 0.0)
+    #     self.mouseTrap_config.closedLoop.outputRange(min, max)
+    #
+    #     self.mouseTrap.configure(self.mouseTrap_config, SparkBase.ResetMode.kResetSafeParameters,
+    #                              SparkBase.PersistMode.kPersistParameters)
+
     def readingAutonSwitches(self):    # Auton DIO
         self.teamBlue = not self.teamColorSwitch.get()
 
@@ -1841,7 +1916,7 @@ class MyRobot(wpilib.TimedRobot):
         self.coralEjectPub = self.tazTable.getDoubleTopic("coralEject").publish()
         self.turtleneckPub = self.tazTable.getDoubleTopic("turtleneck").publish()
         self.climbPub = self.tazTable.getDoubleTopic("climb").publish()
-        self.cageHerderPub = self.tazTable.getDoubleTopic("cageHerder").publish()
+        self.mouseTrapPub = self.tazTable.getDoubleTopic("mouseTrap").publish()
 
     def tazMotorsTelemetry(self): # For periodic
         self.coralIntakePub.set(self.coralIntake_Enc.getPosition())
@@ -1856,7 +1931,7 @@ class MyRobot(wpilib.TimedRobot):
         self.coralEjectPub.set(self.coralEject_Enc.getPosition())
         self.turtleneckPub.set(self.turtleneck_Enc.getPosition())
         self.climbPub.set(self.climb_Enc.getPosition())
-        self.cageHerderPub.set(self.cageHerder_Enc.getPosition())
+        self.mouseTrapPub.set(self.mouseTrap_Enc.getPosition())
 
     def DIO_Pub(self):
         self.teamBluePub = self.tazTable.getBooleanTopic("teamBlue").publish()
